@@ -9,4 +9,4 @@ User could also specify what kind of tiers they want, but this should be done in
 
 ## Example
 
-!(Example)[https://raw.githubusercontent.com/hzsk/flex2exb/master/pom.xml]
+![Example](https://raw.githubusercontent.com/hzsk/flex2exb/master/rest_client_example.png)
