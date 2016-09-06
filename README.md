@@ -6,3 +6,7 @@ The idea is that one could specify the language specific settings and just use t
 What makes the conversion language specific is that the XML nodes can be selected from FLEx XML export only by the language id's and those are different in each project.
 
 User could also specify what kind of tiers they want, but this should be done in an abstract manner so that there would be no touching of tier settings, just selection of what is wanted and program knows what to insert.
+
+## Example
+
+!(Example)[https://raw.githubusercontent.com/hzsk/flex2exb/master/pom.xml]
