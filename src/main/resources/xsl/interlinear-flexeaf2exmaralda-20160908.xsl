@@ -1,298 +1,391 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-    xmlns:xs="http://www.w3.org/2001/XMLSchema"
-    xmlns:my="http://www.philol.msu.ru/~languedoc/xml"
-    exclude-result-prefixes="#all"
-    version="2.0">
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:my="http://www.philol.msu.ru/~languedoc/xml" exclude-result-prefixes="#all" version="2.0">
 
     <xsl:output method="xml" indent="yes" encoding="utf-8" omit-xml-declaration="no"/>
     <xsl:namespace-alias stylesheet-prefix="#default" result-prefix=""/>
 
-    <xsl:param name="timestart" as="xs:decimal" select="4.0"/> <!-- Time offset for first word -->
-    <xsl:param name="timestep" as="xs:decimal" select="0.5"/> <!-- Mean word length in sec -->
-    
-    <xsl:param name="language" required="no" />
-    
-    <!-- This stylesheet was downloaded from GitHub and based upon this file:
-    
-    https://github.com/sarkipo/xsl4interlinear/blob/master/interlinear-flexeaf2exmaralda.xsl
-    
-    Modifications have been done by Niko Partanen. There are comments below, but I summarize here
-    the main issues:
-    
-    - Utterances are now stripped from their punctuations
-    - The tokens have the punctuation attached into them
-    
-    However, I think decisions with these things are also very much related to the exact format
-    we want to have in the final files.
-    
+    <!--
+            This is the transform from SIL FLEx flextext format into EXMARaLDA exb, tuned for Nganasan project.
+            See interlinear-eaf2exmaralda.xsl for conversion from ELAN.
+            (c) Alexandre Arkhipov, MSU, 2015
+
+            This transform is for single files.
+            Based on the batch version based on interlinear-eaf2exmaralda.xsl v1.11.
+            v1.20: Transform for single files.
+            v1.21: ... is replaced with â€¦ and both are counted as a (punctuation) word. (27.02.2016)
+            v1.22: Stylesheet is made more adjustable to different FLEx projects, 
+                      naturally much effort still has to be seen to ensure different FLEx projects share the same structure
     -->
+
+    <xsl:variable name="filename" select="replace(replace(base-uri(),'^.*/',''),'.flextext','')"/>
+
+    <xsl:variable name="tiers-sent">st so ref ts fr fe ft nt no nv na</xsl:variable>
+    <xsl:variable name="tiers-word">tx ps SeR SyF IST</xsl:variable>
+    <xsl:variable name="tiers-morph">mb mp</xsl:variable>
+    <xsl:variable name="tiers-gloss">gr ge go mc</xsl:variable>
+
+    <xsl:param name="timestart" as="xs:decimal" select="4.0"/>
+    <!-- Time offset for first word -->
+    <xsl:param name="timestep" as="xs:decimal" select="0.5"/>
+    <!-- Mean word length in sec -->
+
+    <xsl:param name="language"/>
+
     <xsl:template match="/">
         <basic-transcription>
             <head>
                 <meta-information>
-                    <!-- The project name doesn't seem to be present in the .flextext export. 
-                         Other meta information comes nicely through. -->
-                    <project-name>Niko's test</project-name>
-                    <transcription-name><xsl:value-of select="/*/*/item[@type='title'][1]"/></transcription-name>
-                    <referenced-file url="{concat(/*/*/item[@type='title'][1],'.wav')}"/>
+                    <project-name>Nganasan</project-name>
+                    <transcription-name>
+                        <xsl:value-of select="$filename"/>
+                    </transcription-name>
+                    <referenced-file url="{concat($filename,'.wav')}"/>
                     <ud-meta-information/>
-                    <comment><xsl:value-of select="/*/*/item[@type='comment']"/></comment>
+                    <comment/>
                     <transcription-convention/>
                 </meta-information>
-                <!-- Something should be done with this. Is it possible this data is not present in
-                     the FLEx file? In this case it should be inserted to .exb file from elsewhere?
-                     Or should the metadata be stored entirely outside the .exb files i.e. in Coma? -->
                 <speakertable>
-                    <speaker id="SPK_unknown">
+                    <speaker id="SPK">
                         <abbreviation>SPK</abbreviation>
                         <sex value="m"/>
                         <languages-used/>
                         <l1/>
                         <l2/>
-                        <ud-speaker-information><xsl:text> </xsl:text></ud-speaker-information>
+                        <ud-speaker-information> </ud-speaker-information>
                         <comment/>
                     </speaker>
                 </speakertable>
             </head>
             <basic-body>
-                <!-- This works well. -->
                 <common-timeline>
+                    <!-- here go the time slots -->
                     <xsl:for-each select="//phrase">
-                        <xsl:variable name="tsnumber" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <tli id="{concat('T',$tsnumber)}" time="{format-number($timestart + $timestep*$tsnumber, '#0.0##')}" type="appl"/>
-                        <xsl:for-each select="current()//word[item/@type!='punct']">
-                            <tli id="{concat('T',$tsnumber+position())}" time="{format-number($timestart + $timestep*($tsnumber+position()),'#0.0##')}" type="appl"/>
+                        <xsl:variable name="tsnumber" select="count(./preceding::word[my:word(.)])"/>
+                        <!-- +position()-1 -->
+                        <tli id="{concat('T',$tsnumber)}"
+                            time="{format-number($timestart + $timestep*$tsnumber, '#0.0##')}" type="appl"/>
+                        <xsl:for-each select="current()//word[my:word(.)]">
+                            <tli id="{concat('T',$tsnumber+position())}"
+                                time="{format-number($timestart + $timestep*($tsnumber+position()),'#0.0##')}"
+                                type="appl"/>
                         </xsl:for-each>
                     </xsl:for-each>
                 </common-timeline>
-                
-                <!-- SEGNUM - PHRASE NUMBERS -->
-                <!-- This works well. -->
-                <tier  id="segnum-en" speaker="SPK_unknown" category="ref" type="d" display-name="ref">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:variable name="ts-end" select="$ts-start+count(.//word[item/@type!='punct'])"/>
-                        <event start="{concat('T',$ts-start)}" end="{concat('T',$ts-end)}">
-                            <xsl:value-of select="./item[@type='segnum' and @lang='en']"></xsl:value-of>
-                        </event>
-                    </xsl:for-each>
-                </tier>
-                
-                <!-- FULL SENTENCE TEXT in LATIN transcription -->
-                <!-- This needed some tweaking, it seems that in the other version the word units were stored
-                     in a slightly different XML node. I leave here for now the tiers for both Cyrillic and Latin
-                     transcriptions, though I guess we don't know yet how we will have it in future ourselves.
-                
-                -->
 
-                <tier id="phrase-txt-lat" speaker="SPK_unknown" category="txt" type="t" display-name="txt-lat">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./words/preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:variable name="ts-end" select="$ts-start+count(.//word[item/@type!='punct'])"/>
-                        <event start="{concat('T',$ts-start)}" end="{concat('T',$ts-end)}">
-                            <xsl:value-of select="./words/word/item[@type='txt' and @lang=$language]"></xsl:value-of>
-                        </event>
-                    </xsl:for-each>
-                </tier>
-
-		<!-- I commented out the Cyrillic text, as it doesn't exist in the export. -->
-                <!-- FULL SENTENCE TEXT in CYRILLIC transcription 
-                <tier id="phrase-txt-nio-cyr" speaker="SPK_unknown" category="txt" type="t" display-name="txt-nio-cyr">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:variable name="ts-end" select="$ts-start+count(.//word[item/@type!='punct'])"/>
-                        <event start="{concat('T',$ts-start)}" end="{concat('T',$ts-end)}">
-                            <xsl:value-of select="./item[@type='txt' and @lang='nio-x-cyr']"></xsl:value-of>
-                        </event>
-                    </xsl:for-each>
-                </tier>
-                -->
-                
-                <!-- SENTENCE FREE TRANSLATION in ENGLISH -->
-                <!-- Here one had to change the language id. -->
-                <tier id="phrase-ft-en" speaker="SPK_unknown" category="ft" type="d" display-name="ft-en">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:variable name="ts-end" select="$ts-start+count(.//word[item/@type!='punct'])"/>
-                        <event start="{concat('T',$ts-start)}" end="{concat('T',$ts-end)}">
-                            <xsl:value-of select="./item[@type='gls' and @lang='en']"></xsl:value-of>
-                        </event>
-                    </xsl:for-each>
-                </tier>
-                
-                <!-- SENTENCE FREE TRANSLATION in RUSSIAN -->
-                <!-- In the demo file there is only Portuguese translation, but I guess in our case we'll have some
-                     others too. -->
-                <tier id="phrase-ft-ru" speaker="SPK_unknown" category="ft" type="d" display-name="ft-ru">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:variable name="ts-end" select="$ts-start+count(.//word[item/@type!='punct'])"/>
-                        <event start="{concat('T',$ts-start)}" end="{concat('T',$ts-end)}">
-                            <xsl:value-of select="./item[@type='gls' and @lang='ru']"></xsl:value-of>
-                        </event>
-                    </xsl:for-each>
-                </tier>
-                
-                <!-- SENTENCE NOTES -->
-                
-                <tier id="phrase-note" speaker="SPK_unknown" category="nt" type="d" display-name="nt">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:variable name="ts-end" select="$ts-start+count(.//word[item/@type!='punct'])"/>
-                        <xsl:if test="./item[@type='note']">
-                            <event start="{concat('T',$ts-start)}" end="{concat('T',$ts-end)}">
-                                <xsl:value-of select="./item[@type='note']" separator=" || "></xsl:value-of>
-                            </event>
-                        </xsl:if>
-                    </xsl:for-each>
-                </tier>
-                
-                <!-- NOW WORD-LEVEL -->                
-                <!-- WORD TRANSCRIPTION (~TX) -->
-                <!-- I think the punctuation here is not treated exactly as it should?
-                     Now the result is such that the token, when followed by punctuation, is sticked together with the following
-                     punctuation character, so we have strings like "uxu,", whereas I guess we should have "uxu" and ",".
-                     The punctuation characters do not have have any information about themselves in the export file,
-                     they are just like this: 
-                
-                     <word>
-                     <item type="punct" lang="seh">?</item>
-                     </word>
-                     
-                     I guess in this case one could take the punctuation characters and generate for them some glosses
-                     and POS tags, just marking that they are punctuation characters. I think this structure may become
-                     problematic later? However, in this case we would also need to count the punctuation characters
-                     differently while creating the timeslots upper.
-                -->
-                
-                <tier id="word-txt" speaker="SPK_unknown" category="txt" type="t" display-name="tx">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:for-each-group select=".//word" group-starting-with="word[item/@type!='punct' and preceding-sibling::word/item/@type!='punct']">
-                            <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
-                            <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
-                                <xsl:variable name="value"><xsl:value-of select="current-group()/item[@type='txt' or @type='punct']" separator=""/></xsl:variable>
-                                <xsl:value-of select="my:cleanup-tx($value)"/>
-                            </event>
-                        </xsl:for-each-group>
-                    </xsl:for-each>
-                </tier>
-                
-                <!-- FIRST MORPH-LEVEL -->                
-                <!-- MORPH SURFACE FORM (~MD) -->
-		<!-- This has to be done once for English -->
-                <tier id="morph-txt-stem" speaker="SPK_unknown" category="txt" type="a" display-name="md-en-stem">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:for-each-group select=".//word" group-starting-with="word[item/@type!='punct' and preceding-sibling::word/item/@type!='punct']">
-                            <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
-                            <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
-                                <xsl:variable name="value"><xsl:value-of select="current-group()//item[@type='gls' and @lang='en'][../@type='stem']" separator=""/></xsl:variable>
-                                <xsl:value-of select="my:cleanup-morph($value)"/>
-                            </event>
-                        </xsl:for-each-group>
-                    </xsl:for-each>
-                </tier>
-
-                <!-- MORPH SURFACE FORM (~MD) -->
-		<!-- And repeated for Russian -->
-                <tier id="morph-ru-stem" speaker="SPK_unknown" category="txt" type="a" display-name="md-ru-stem">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:for-each-group select=".//word" group-starting-with="word[item/@type!='punct' and preceding-sibling::word/item/@type!='punct']">
-                            <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
-                            <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
-                                <xsl:variable name="value"><xsl:value-of select="current-group()//item[@type='gls' and @lang='ru'][../@type='stem']" separator=""/></xsl:variable>
-                                <xsl:value-of select="my:cleanup-morph($value)"/>
-                            </event>
-                        </xsl:for-each-group>
-                    </xsl:for-each>
-                </tier>
+                <!-- Here go the tiers. The output order is fixed. -->
+                <xsl:call-template name="tier-sent">
+                    <!-- ref -->
+                    <xsl:with-param name="itemtype" select="'segnum'"/>
+                    <xsl:with-param name="lang" select="'en'"/>
+                    <xsl:with-param name="cat" select="'ref'"/>
+                    <xsl:with-param name="display" select="'ref'"/>
+                    <xsl:with-param name="prefix" select="concat($filename,'.')"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-sent">
+                    <!-- st -->
+                    <xsl:with-param name="itemtype" select="'lit'"/>
+                    <xsl:with-param name="lang" select="concat($language, '-x-cyr')"/>
+                    <xsl:with-param name="display" select="'st'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-sent">
+                    <!-- ts -->
+                    <xsl:with-param name="itemtype" select="'lit'"/>
+                    <xsl:with-param name="lang" select="concat($language, '-x-lat')"/>
+                    <xsl:with-param name="display" select="'ts'"/>
+                </xsl:call-template>
 
 
-                <!-- Here we have the stems and suffixes placed together into one string. -->
+                <xsl:call-template name="tier-tx"/>
 
-		    <tier id="morph-string" speaker="SPK_unknown" category="txt" type="a" display-name="md-string-surf">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:for-each-group select=".//word" group-starting-with="word[item/@type!='punct' and preceding-sibling::word/item/@type!='punct']">
-                            <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
-                            <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
-                                <xsl:variable name="value"><xsl:value-of select="current-group()//morphemes/morph/item[@type='txt']" separator=""/></xsl:variable>
-                                <xsl:value-of select="my:cleanup-morph($value)"/>
-                            </event>
-                        </xsl:for-each-group>
-                    </xsl:for-each>
-                </tier>
 
-		    <tier id="morph-string-abstr" speaker="SPK_unknown" category="txt" type="a" display-name="md-string-abstr">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:for-each-group select=".//word" group-starting-with="word[item/@type!='punct' and preceding-sibling::word/item/@type!='punct']">
-                            <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
-                            <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
-                                <xsl:variable name="value"><xsl:value-of select="current-group()//morphemes/morph/item[@type='cf']" separator=""/></xsl:variable>
-                                <xsl:value-of select="my:cleanup-morph($value)"/>
-                            </event>
-                        </xsl:for-each-group>
-                    </xsl:for-each>
-                </tier>
+                <xsl:call-template name="tier-morph">
+                    <!-- mb -->
+                    <xsl:with-param name="itemtype" select="'txt'"/>
+                    <xsl:with-param name="lang" select="concat($language, '-x-lat')"/>
+                    <xsl:with-param name="display" select="'mb'"/>
+                    <xsl:with-param name="sep" select="''"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-morph">
+                    <!-- mp -->
+                    <xsl:with-param name="itemtype" select="'cf'"/>
+                    <xsl:with-param name="lang" select="concat($language, '-x-lat')"/>
+                    <xsl:with-param name="display" select="'mp'"/>
+                    <xsl:with-param name="sep" select="''"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-morph">
+                    <!-- gr -->
+                    <xsl:with-param name="itemtype" select="'gls'"/>
+                    <xsl:with-param name="lang" select="'ru'"/>
+                    <xsl:with-param name="cat" select="'gr'"/>
+                    <xsl:with-param name="display" select="'gr'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-morph">
+                    <!-- ge -->
+                    <xsl:with-param name="itemtype" select="'gls'"/>
+                    <xsl:with-param name="lang" select="'en'"/>
+                    <xsl:with-param name="display" select="'ge'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-morph">
+                    <!-- go -->
+                    <xsl:with-param name="itemtype" select="'gls'"/>
+                    <xsl:with-param name="lang" select="'ru-Qaaa-x-Ourg'"/>
+                    <xsl:with-param name="cat" select="'go'"/>
+                    <xsl:with-param name="display" select="'go'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-morph">
+                    <!-- mc -->
+                    <xsl:with-param name="itemtype" select="'msa'"/>
+                    <xsl:with-param name="lang" select="'en'"/>
+                    <xsl:with-param name="cat" select="'k'"/>
+                    <xsl:with-param name="display" select="'mc'"/>
+                </xsl:call-template>
 
-		<!-- Here we take the glossed elements, both stems and suffixes, and put them together. If we want to use Leipzig glossing standards, 
-		     then this has to be set up in a more complicated way -->
 
-		    <tier id="morph" speaker="SPK_unknown" category="txt" type="a" display-name="md">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:for-each-group select=".//word" group-starting-with="word[item/@type!='punct' and preceding-sibling::word/item/@type!='punct']">
-                            <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
-                            <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
-                                <xsl:variable name="value"><xsl:value-of select="current-group()//morphemes/morph/item[@type='gls' and @lang='en']" separator="-"/></xsl:variable>
-                                <xsl:value-of select="my:cleanup-morph($value)"/>
-                            </event>
-                        </xsl:for-each-group>
-                    </xsl:for-each>
-                </tier>
-		
-		<!-- The same is done for the pos-tagging as well -->
+                <xsl:call-template name="tier-word-new">
+                    <!-- ps -->
+                    <xsl:with-param name="display" select="'ps'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-word-new">
+                    <!-- SeR -->
+                    <xsl:with-param name="display" select="'SeR'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-word-new">
+                    <!-- SyF -->
+                    <xsl:with-param name="display" select="'SyF'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-word-new">
+                    <!-- IST -->
+                    <xsl:with-param name="display" select="'IST'"/>
+                </xsl:call-template>
 
-		    <tier id="pos" speaker="SPK_unknown" category="txt" type="a" display-name="pos">
-                    <xsl:for-each select="//phrase">
-                        <xsl:variable name="ts-start" select="count(./preceding::word[item/@type!='punct'])+position()-1"/>
-                        <xsl:for-each-group select=".//word" group-starting-with="word[item/@type!='punct' and preceding-sibling::word/item/@type!='punct']">
-                            <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
-                            <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
-                                <xsl:variable name="value"><xsl:value-of select="current-group()//morphemes/morph/item[@type='msa' and @lang='en']" separator="-"/></xsl:variable>
-                                <xsl:value-of select="my:cleanup-morph($value)"/>
-                            </event>
-                        </xsl:for-each-group>
-                    </xsl:for-each>
-                </tier>
-                
+
+                <xsl:call-template name="tier-sent">
+                    <!-- fr -->
+                    <xsl:with-param name="itemtype" select="'gls'"/>
+                    <xsl:with-param name="lang" select="'ru'"/>
+                    <xsl:with-param name="cat" select="'fr'"/>
+                    <xsl:with-param name="display" select="'fr'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-sent">
+                    <!-- fe -->
+                    <xsl:with-param name="itemtype" select="'gls'"/>
+                    <xsl:with-param name="lang" select="'en'"/>
+                    <xsl:with-param name="cat" select="'fe'"/>
+                    <xsl:with-param name="display" select="'fe'"/>
+                </xsl:call-template>
+                <xsl:call-template name="tier-sent">
+                    <!-- nt -->
+                    <xsl:with-param name="itemtype" select="'note'"/>
+                    <xsl:with-param name="cat" select="'k'"/>
+                    <xsl:with-param name="display" select="'nt'"/>
+                </xsl:call-template>
             </basic-body>
+            <!-- insert the tierformat-table (copied a formatting template) -->
+            <xsl:copy-of select="$format-table"/>
         </basic-transcription>
-    </xsl:template> 
-    
+    </xsl:template>
+
+
+    <xsl:template name="tier-sent">
+        <!-- from flextext -->
+        <xsl:param name="itemtype"/>
+        <xsl:param name="lang" select="''"/>
+        <!-- for exmaralda -->
+        <xsl:param name="cat" select="'v'"/>
+        <xsl:param name="type" select="'d'"/>
+        <xsl:param name="display"/>
+        <!-- to append filename in ref tier -->
+        <xsl:param name="prefix" select="''"/>
+        <tier id="{$display}" speaker="SPK_unknown" category="{$cat}" type="{$type}" display-name="{$display}">
+            <xsl:for-each select="//phrase">
+                <xsl:variable name="ts-start" select="count(./preceding::word[my:word(.)])"/><!-- ./preceding::word[item/@type!='punct'] -->
+                <!-- +position()-1 -->
+                <xsl:variable name="ts-end" select="$ts-start+count(.//word[my:word(.)])"/>
+                <xsl:variable name="value">
+                    <xsl:value-of select="./item[@type=$itemtype and (if ($lang eq '') then true() else @lang=$lang)]"
+                        separator=" || "/>
+                </xsl:variable>
+                <event start="{concat('T',$ts-start)}" end="{concat('T',$ts-end)}">
+                    <xsl:value-of select="concat($prefix, my:cleanup-brackets(my:sent-renum($value,$display)))"/>
+                </event>
+            </xsl:for-each>
+        </tier>
+    </xsl:template>
+
+
+    <!-- WORD-LEVEL TIERS -->
+    <!-- WORD TRANSCRIPTION (~TX) -->
+    <xsl:template name="tier-tx">
+        <tier id="tx" speaker="SPK_unknown" category="tx" type="t" display-name="tx">
+            <xsl:for-each select="//phrase">
+                <xsl:variable name="ts-start" select="count(./preceding::word[my:word(.)])"/>
+                <xsl:for-each-group select=".//word"
+                    group-starting-with="word[my:startwordgroup(.)]">
+                    <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
+                    <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
+                        <xsl:variable name="value">
+                            <xsl:value-of select="current-group()/item[@type='txt' or @type='punct']" separator=""/>
+                        </xsl:variable>
+                        <xsl:value-of select="my:cleanup-tx($value)"/>
+                    </event>
+                </xsl:for-each-group>
+            </xsl:for-each>
+        </tier>
+    </xsl:template>
+
+    <!-- NEW EMPTY WORD-LEVEL TIERS (PS, SeR, SyF, IST) -->
+    <xsl:template name="tier-word-new">
+        <!-- for exmaralda -->
+        <xsl:param name="cat" select="'v'"/>
+        <xsl:param name="type" select="'a'"/>
+        <xsl:param name="display"/>
+        <tier id="{$display}" speaker="SPK_unknown" category="{$cat}" type="{$type}" display-name="{$display}">
+            <xsl:for-each select="//phrase">
+                <xsl:variable name="ts-start" select="count(./preceding::word[my:word(.)])"/>
+                <!-- +position()-1 -->
+                <xsl:for-each-group select=".//word"
+                    group-starting-with="word[my:startwordgroup(.)]">
+                    <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
+                    <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}"/>
+                </xsl:for-each-group>
+            </xsl:for-each>
+        </tier>
+    </xsl:template>
+
+
+    <!-- MORPH/GLOSS LEVELS -->
+    <xsl:template name="tier-morph">
+        <!-- from flextext -->
+        <xsl:param name="itemtype"/>
+        <xsl:param name="lang" select="''"/>
+        <!-- for exmaralda -->
+        <xsl:param name="cat" select="'v'"/>
+        <xsl:param name="type" select="'a'"/>
+        <xsl:param name="display"/>
+        <!-- separator -->
+        <xsl:param name="sep" select="'-'"/>
+        <tier id="{$display}" speaker="SPK_unknown" category="{$cat}" type="{$type}" display-name="{$display}">
+            <xsl:for-each select="//phrase">
+                <xsl:variable name="ts-start" select="count(./preceding::word[my:word(.)])"/>
+                <!-- +position()-1 -->
+                <xsl:for-each-group select=".//word"
+                    group-starting-with="word[my:startwordgroup(.)]">
+                    <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
+                    <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
+                        <xsl:variable name="value">
+                            <xsl:value-of select="current-group()//morph/item[@type=$itemtype and @lang=$lang]"
+                                separator="{$sep}"/>
+                        </xsl:variable>
+                        <xsl:choose>
+                            <xsl:when test="contains($tiers-morph,$display)">
+                                <xsl:value-of select="my:cleanup-morph($value)"/>
+                            </xsl:when>
+                            <xsl:when test="contains($tiers-gloss,$display)">
+                                <xsl:value-of select="my:cleanup-gloss($value)"/>
+                            </xsl:when>
+                            <xsl:otherwise>
+                                <xsl:value-of select="my:cleanup-brackets($value)"/>
+                            </xsl:otherwise>
+                        </xsl:choose>
+
+                    </event>
+                </xsl:for-each-group>
+            </xsl:for-each>
+        </tier>
+    </xsl:template>
+
+
     <xsl:function name="my:cleanup-tx" as="xs:string">
         <xsl:param name="in" as="xs:string"/>
-        <xsl:value-of select="concat($in,' ')"/>
-        <!-- attach one space -->
+        <xsl:value-of
+            select="concat(replace(replace(my:cleanup-brackets($in),'( +$)|[Ë€ï†¹]',''),'[03]([\.,!\?;:]*)$','$1'),' ')"/>
+        <!-- strip trailing space, strip final 0 and 3, attach one space -->
+        <!-- strip "deep consonant" and "deep glottal stop" -->
     </xsl:function>
 
     <xsl:function name="my:cleanup-morph" as="xs:string">
         <xsl:param name="in" as="xs:string"/>
-        <xsl:value-of select="replace($in,'(-\^0$| )','')"/>
-        <!-- strip final -^0 and remove the spaces-->
+        <xsl:value-of select="replace(my:cleanup-brackets($in),'-\^0','')"/>
+        <!-- strip -^0 -->
     </xsl:function>
-    
+
     <xsl:function name="my:cleanup-gloss" as="xs:string">
         <xsl:param name="in" as="xs:string"/>
-        <xsl:value-of select="replace($in,'-(\[.+\])','.$1')"/>
-        <!-- put . instead of - before [...] -->
+        <xsl:value-of select="replace(my:cleanup-brackets(replace($in,' ','')),'-(\[.+?\])','.$1')"/>
+        <!-- replace - with . before [] -->
+        <!-- fixed to lazy quant. to handle multiple replaces in one string -->
+        <!-- erase spaces -->
     </xsl:function>
-   
-        <!-- insert the tierformat-table (copied a formatting template) -->
+
+    <!-- replacing brackets [[ ]] with (( )) for all tiers -->
+    <xsl:function name="my:cleanup-brackets" as="xs:string">
+        <xsl:param name="in" as="xs:string"/>
+        <!-- replace [[, ]] with ((, )) -->
+        <xsl:variable name="temp" select="replace(replace($in,'\[\[', '(('), '\]\]', '))')"/>
+        <!-- replace ... with â€¦ -->
+        <xsl:variable name="temp2" select="replace($temp,'(\.\.\.)', 'â€¦')"/>
+        <!-- replace /// with ((XXX)); ??? with ((unknown)) -->
+        <xsl:value-of select="replace(replace($temp2,'(///)','((XXX))'),'\?\?\?','((unknown))')"/>
+    </xsl:function>
+
+    <!-- take "para.sent" number from segnum, extract second part (assuming always a single paragraph per text), -->
+    <!-- convert to a number and pad with zeroes to 3 digits -->
+    <xsl:function name="my:sent-renum" as="xs:string">
+        <xsl:param name="in" as="xs:string"/>
+        <xsl:param name="tier" as="xs:string"/>
+        <xsl:choose>
+            <xsl:when test="$tier='ref'">
+                <xsl:value-of select="format-number(number(substring-after($in,'.')),'#000')"/>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="$in"/>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:function>
+
+    <xsl:function name="my:startwordgroup" as="xs:boolean">
+        <xsl:param name="word" as="element(word)"/>
+        <xsl:choose>
+            <xsl:when test="my:lpunct($word/preceding-sibling::word[1])">
+                <xsl:value-of select="false()"/>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="if (my:lpunct($word) or my:word($word)) then true() else false()"/>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:function>
+
+    <xsl:function name="my:lpunct" as="xs:boolean">
+        <xsl:param name="word"/>
+        <!-- as="element(word)" -->
+        <xsl:choose>
+            <xsl:when test="$word/item/@type='punct' and matches($word/item/text()[1],'(\(+)|(\[+)|[Â«â€œâ€˜]')">
+                <xsl:value-of select="true()"/>
+            </xsl:when>
+            <xsl:when test="$word/item/@type='punct' and empty($word/preceding-sibling::word)">
+                <xsl:value-of select="true()"/>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="false()"/>
+            </xsl:otherwise>
+        </xsl:choose>
+    </xsl:function>
+
+    <!-- Tell apart real punctuation from non-baseline lang which also has @type="punct" -->
+    <!-- Also treat "///" and "???" and "..." and "â€¦" as a word -->
+    <xsl:function name="my:word" as="xs:boolean">
+        <xsl:param name="word"/>
+        <!-- as="element(word)" -->
+        <xsl:value-of select="if ($word/item/@type='punct' and $word/item/@lang=concat($language, '-x-lat') and not(matches($word/item[@type='punct'],'(///)|(\?\?\?)|(â€¦)|(\.\.\.)'))) then false() else true()"/>
+    </xsl:function>
+
+    <xsl:function name="my:sec2msec">
+        <xsl:param name="time-sec"/>
+        <xsl:value-of select="replace($time-sec, '([0-9]{3})$', '.$1')"/>
+    </xsl:function>
+
+    <!-- insert the tierformat-table (copied a formatting template) -->
     <xsl:variable name="format-table">
         <tierformat-table>
             <timeline-item-format show-every-nth-numbering="1" show-every-nth-absolute="1" absolute-time-format="time"
@@ -663,5 +756,4 @@
             </tier-format>
         </tierformat-table>
     </xsl:variable>
- 
 </xsl:stylesheet>
