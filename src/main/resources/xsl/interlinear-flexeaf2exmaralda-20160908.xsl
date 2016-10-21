@@ -85,13 +85,13 @@
                 <xsl:call-template name="tier-sent">
                     <!-- st -->
                     <xsl:with-param name="itemtype" select="'lit'"/>
-                    <xsl:with-param name="lang" select="concat($language, '-x-cyr')"/>
+                    <xsl:with-param name="lang" select="$language"/>
                     <xsl:with-param name="display" select="'st'"/>
                 </xsl:call-template>
                 <xsl:call-template name="tier-sent">
                     <!-- ts -->
                     <xsl:with-param name="itemtype" select="'lit'"/>
-                    <xsl:with-param name="lang" select="concat($language, '-x-lat')"/>
+                    <xsl:with-param name="lang" select="$language"/>
                     <xsl:with-param name="display" select="'ts'"/>
                 </xsl:call-template>
 
@@ -102,14 +102,14 @@
                 <xsl:call-template name="tier-morph">
                     <!-- mb -->
                     <xsl:with-param name="itemtype" select="'txt'"/>
-                    <xsl:with-param name="lang" select="concat($language, '-x-lat')"/>
+                    <xsl:with-param name="lang" select="$language"/>
                     <xsl:with-param name="display" select="'mb'"/>
                     <xsl:with-param name="sep" select="''"/>
                 </xsl:call-template>
                 <xsl:call-template name="tier-morph">
                     <!-- mp -->
                     <xsl:with-param name="itemtype" select="'cf'"/>
-                    <xsl:with-param name="lang" select="concat($language, '-x-lat')"/>
+                    <xsl:with-param name="lang" select="$language"/>
                     <xsl:with-param name="display" select="'mp'"/>
                     <xsl:with-param name="sep" select="''"/>
                 </xsl:call-template>
@@ -274,7 +274,7 @@
                     <!-- WHEN SENTENCE STARTS WITH PUNCTUATION, IT IS STICKED TO THE FIRST WORD -->
                     <event start="{concat('T',$ts-start+position()-1)}" end="{concat('T',$ts-start+position())}">
                         <xsl:variable name="value">
-                            <xsl:value-of select="current-group()//morph/item[@type=$itemtype and @lang=$lang]"
+                            <xsl:value-of select="current-group()//morph/item[@type=$itemtype and @lang=$lang] | current-group()//morph/item[@type=$itemtype and @lang='qaa-x-aaa']"
                                 separator="{$sep}"/>
                         </xsl:variable>
                         <xsl:choose>
