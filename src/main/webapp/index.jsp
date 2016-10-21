@@ -7,13 +7,13 @@
                 Select a file : <input type="file" name="file" size="4500" />
             </p>
 
-            <p>Select language:</p>
+<!--            <p>Select language:</p>
             <select name="lang">
                 <option value="xas">Kamassian</option>
                 <option value="nio">Nganasan</option>
                 <option value="sel">Selkup</option>
             </select> 
-            <br />
+            <br /> -->
 
             <input type="submit" value="Tranform file" />
         </form>
