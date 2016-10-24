@@ -5,6 +5,7 @@
  */
 package de.uni_hamburg.corpora.flex2exb;
 
+import com.google.common.base.Joiner;
 import com.sun.jersey.core.header.FormDataContentDisposition;
 import com.sun.jersey.multipart.FormDataParam;
 import java.io.BufferedReader;
@@ -14,6 +15,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Scanner;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
@@ -104,27 +108,42 @@ public class flex2exb {
         Document doc = builder.parse(uploadedInputStream);
         DOMSource source = new DOMSource(doc);
 
-        TransformerFactory tf1 = TransformerFactory.newInstance();
-        Transformer transformer = tf1.newTransformer();
-        StringWriter writer = new StringWriter();
-        transformer.transform(new DOMSource(doc), new StreamResult(writer));
-        String strResult = writer.getBuffer().toString().replaceAll("\n|\r", "");
+        String strResult = getStringFromDoc(source);
+        
+//        TransformerFactory tf1 = TransformerFactory.newInstance();
+//        Transformer transformer = tf1.newTransformer();
+//        StringWriter writer = new StringWriter();
+//        transformer.transform(new DOMSource(doc), new StreamResult(writer));
+//        String strResult = writer.getBuffer().toString().replaceAll("\n|\r", "");
 
         XPath xpath = XPathFactory.newInstance().newXPath();
-        InputSource inputSource = new InputSource(new StringReader(strResult));
-        String language = xpath.evaluate("/document/interlinear-text[1]/paragraphs[1]/paragraph[1]/phrases[1]/phrase[1]/words[1]/word[1]/item[1]/@lang", inputSource);
+        InputSource langSource = new InputSource(new StringReader(strResult));
+        String language = xpath.evaluate("/document/interlinear-text[1]/paragraphs[1]/paragraph[1]/phrases[1]/phrase[1]/words[1]/word[1]/item[1]/@lang", langSource);
 
-//        StreamSource xmlSource = new StreamSource(uploadedInputStream);
+        InputSource transSource = new InputSource(new StringReader(strResult));
+        XPathExpression transXpath = xpath.compile("/document/interlinear-text/paragraphs/paragraph/phrases/phrase/item[@type='gls' or @type='lit']/@lang");
+        NodeList translationNodes = (NodeList) transXpath.evaluate(transSource, XPathConstants.NODESET);
+        
+        List<String> translationStrings = new ArrayList<String>();
+        
+        for (int translation = 0; translation < translationNodes.getLength(); translation++)
+                        translationStrings.add(translationNodes.item(translation).getNodeValue());
+        
+        HashSet uniqueTr = new HashSet();
+                uniqueTr.addAll(translationStrings);
+                translationStrings.clear();
+                translationStrings.addAll(uniqueTr);
+        
+                String joinedTr = Joiner.on(" ").join(uniqueTr);
+                
         StreamSource xslSource = new StreamSource(xslFile);
 
-//        XPathFactory xpathfactory = XPathFactory.newInstance();
-//        XPath xpath = xpathfactory.newXPath();
-//        String language = xpath.evaluate("/document/interlinear-text[1]/paragraphs[1]/paragraph[1]/phrases[1]/phrase[1]/words[1]/word[1]/item[1]/@lang", inputSource);        
 //        create the transformerfactory & transformer instance
         TransformerFactory tf = TransformerFactory.newInstance("net.sf.saxon.TransformerFactoryImpl", null);
         Transformer t = tf.newTransformer(xslSource);
 
         t.setParameter("language", language);
+        t.setParameter("translations", joinedTr);
 
         StringWriter xmlOutWriter = new StringWriter();
         // do transformation
@@ -132,6 +151,26 @@ public class flex2exb {
 
         return xmlOutWriter.toString();
 
+// return "" + language + " test " + uniqueTr + "";
+
     }
 
+    public String getStringFromDoc(DOMSource domSource)    {
+        try
+        {
+           StringWriter writer = new StringWriter();
+           StreamResult result = new StreamResult(writer);
+           TransformerFactory tf = TransformerFactory.newInstance();
+           Transformer transformer = tf.newTransformer();
+           transformer.transform(domSource, result);
+           writer.flush();
+           return writer.toString();
+        }
+        catch(TransformerException ex)
+        {
+           ex.printStackTrace();
+           return null;
+        }
+    }
+    
 }
