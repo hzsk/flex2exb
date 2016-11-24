@@ -8,17 +8,13 @@ package de.uni_hamburg.corpora.flex2exb;
 import com.google.common.base.Joiner;
 import com.sun.jersey.core.header.FormDataContentDisposition;
 import com.sun.jersey.multipart.FormDataParam;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Scanner;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.FormParam;
@@ -47,7 +43,6 @@ import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import org.w3c.dom.Document;
-//import jdk.internal.org.xml.sax.InputSource;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 import org.xml.sax.InputSource;
@@ -95,10 +90,9 @@ public class flex2exb {
     public String uploadFile(
             @FormDataParam("file") InputStream uploadedInputStream,
             @FormDataParam("file") FormDataContentDisposition fileDetail//,
-//            @DefaultValue("unknown") @FormDataParam("lang") String language
+
     ) throws IOException, TransformerConfigurationException, TransformerException, XPathExpressionException, ParserConfigurationException, SAXException, Exception {
 
-//        InputStream xslFile = getClass().getResourceAsStream("/xsl/interlinear-flexeaf2exmaralda-20160908.xsl");
         InputStream xslFile = getClass().getResourceAsStream("/xsl/interlinear-flex2exmaralda-var-multi.xsl");
 
         if (xslFile == null) {
@@ -112,31 +106,17 @@ public class flex2exb {
 
         String strResult = getStringFromDoc(source);
         
-//        TransformerFactory tf1 = TransformerFactory.newInstance();
-//        Transformer transformer = tf1.newTransformer();
-//        StringWriter writer = new StringWriter();
-//        transformer.transform(new DOMSource(doc), new StreamResult(writer));
-//        String strResult = writer.getBuffer().toString().replaceAll("\n|\r", "");
-
         XPath xpath = XPathFactory.newInstance().newXPath();
         InputSource langSource = new InputSource(new StringReader(strResult));
         String language = xpath.evaluate("/document/interlinear-text[1]/paragraphs[1]/paragraph[1]/phrases[1]/phrase[1]/words[1]/word[1]/item[1]/@lang", langSource);
-
-//        String translationXpath = "/document/interlinear-text/paragraphs/paragraph/phrases/phrase/item[@type='gls' or @type='lit']/@lang";
-//        String translations = getStringFromXML(strResult, translationXpath);
-//        
-//        String glossXpath = "/document/interlinear-text/paragraphs/paragraph/phrases/phrase/item[@type='gls' or @type='lit']/@lang";
-//        String glosses = getStringFromXML(strResult, glossXpath);
         
         StreamSource xslSource = new StreamSource(xslFile);
 
-//        create the transformerfactory & transformer instance
+        // create the transformerfactory & transformer instance
         TransformerFactory tf = TransformerFactory.newInstance("net.sf.saxon.TransformerFactoryImpl", null);
         Transformer t = tf.newTransformer(xslSource);
 
         t.setParameter("language", language);
-//        t.setParameter("translations", translations);
-//        t.setParameter("glosses", glosses);
 
         StringWriter xmlOutWriter = new StringWriter();
         // do transformation
