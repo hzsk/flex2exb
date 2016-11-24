@@ -143,26 +143,5 @@ public class flex2exb {
            return null;
         }
     }
-
-    public String getStringFromXML(String strResult, String xpathString) throws XPathExpressionException{
-    
-        XPath xpath = XPathFactory.newInstance().newXPath();
-        InputSource transSource = new InputSource(new StringReader(strResult));
-        XPathExpression transXpath = xpath.compile(xpathString);
-        NodeList translationNodes = (NodeList) transXpath.evaluate(transSource, XPathConstants.NODESET);
-        
-        List<String> translationStrings = new ArrayList<String>();
-        
-        for (int translation = 0; translation < translationNodes.getLength(); translation++)
-                        translationStrings.add(translationNodes.item(translation).getNodeValue());
-        
-        HashSet uniqueTr = new HashSet();
-                uniqueTr.addAll(translationStrings);
-                translationStrings.clear();
-                translationStrings.addAll(uniqueTr);
-        
-                String joinedTr = Joiner.on(" ").join(uniqueTr);
-            return joinedTr;
-        }
             
 }
