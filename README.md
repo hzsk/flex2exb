@@ -1,12 +1,4 @@
 # flex2exb
-This is a web application which does the FLEx to EXB conversion, using primarily XSL developed by Alexandre Arkhipov (https://github.com/sarkipo/xsl4interlinear)
+This is a web application which does the FLEx to EXB conversion, using primarily XSL developed by Alexandre Arkhipov (https://github.com/sarkipo/xsl4interlinear) and having some parts of the code taken from EXMARaLDA project. The long term plan is to integrate this functionality somehow also into EXMARaLDA, as Partitur Editor is the main tool to work with the files produced by this web service.
 
-The idea is that one could specify the language specific settings and just use the web service to do the conversion. One could add a drag-and-drop kind of user interface and get back from that a zip file with all converted files.
-
-What makes the conversion language specific is that the XML nodes can be selected from FLEx XML export only by the language id's and those are different in each project.
-
-User could also specify what kind of tiers they want, but this should be done in an abstract manner so that there would be no touching of tier settings, just selection of what is wanted and program knows what to insert.
-
-## Example
-
-![Example](https://raw.githubusercontent.com/hzsk/flex2exb/master/rest_client_example.png)
+The idea is that additional parameters would not need to be specified, as the language attribute is already present in incoming FLEXTEXT file and the settings used in INEL project for different languages can be automatically selected based on this. The model for adding new languages is still being developed, but ideally one could just add the language to the settings file.
