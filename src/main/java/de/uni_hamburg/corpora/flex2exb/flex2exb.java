@@ -91,13 +91,15 @@ public class flex2exb {
     @POST
     @Path("/upload")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Produces("text/xml")
     public String uploadFile(
             @FormDataParam("file") InputStream uploadedInputStream,
             @FormDataParam("file") FormDataContentDisposition fileDetail//,
 //            @DefaultValue("unknown") @FormDataParam("lang") String language
     ) throws IOException, TransformerConfigurationException, TransformerException, XPathExpressionException, ParserConfigurationException, SAXException, Exception {
 
-        InputStream xslFile = getClass().getResourceAsStream("/xsl/interlinear-flexeaf2exmaralda-20160908.xsl");
+//        InputStream xslFile = getClass().getResourceAsStream("/xsl/interlinear-flexeaf2exmaralda-20160908.xsl");
+        InputStream xslFile = getClass().getResourceAsStream("/xsl/interlinear-flex2exmaralda-var-multi.xsl");
 
         if (xslFile == null) {
             throw new IOException("Stylesheet not found!");
@@ -120,22 +122,12 @@ public class flex2exb {
         InputSource langSource = new InputSource(new StringReader(strResult));
         String language = xpath.evaluate("/document/interlinear-text[1]/paragraphs[1]/paragraph[1]/phrases[1]/phrase[1]/words[1]/word[1]/item[1]/@lang", langSource);
 
-        InputSource transSource = new InputSource(new StringReader(strResult));
-        XPathExpression transXpath = xpath.compile("/document/interlinear-text/paragraphs/paragraph/phrases/phrase/item[@type='gls' or @type='lit']/@lang");
-        NodeList translationNodes = (NodeList) transXpath.evaluate(transSource, XPathConstants.NODESET);
+//        String translationXpath = "/document/interlinear-text/paragraphs/paragraph/phrases/phrase/item[@type='gls' or @type='lit']/@lang";
+//        String translations = getStringFromXML(strResult, translationXpath);
+//        
+//        String glossXpath = "/document/interlinear-text/paragraphs/paragraph/phrases/phrase/item[@type='gls' or @type='lit']/@lang";
+//        String glosses = getStringFromXML(strResult, glossXpath);
         
-        List<String> translationStrings = new ArrayList<String>();
-        
-        for (int translation = 0; translation < translationNodes.getLength(); translation++)
-                        translationStrings.add(translationNodes.item(translation).getNodeValue());
-        
-        HashSet uniqueTr = new HashSet();
-                uniqueTr.addAll(translationStrings);
-                translationStrings.clear();
-                translationStrings.addAll(uniqueTr);
-        
-                String joinedTr = Joiner.on(" ").join(uniqueTr);
-                
         StreamSource xslSource = new StreamSource(xslFile);
 
 //        create the transformerfactory & transformer instance
@@ -143,15 +135,14 @@ public class flex2exb {
         Transformer t = tf.newTransformer(xslSource);
 
         t.setParameter("language", language);
-        t.setParameter("translations", joinedTr);
+//        t.setParameter("translations", translations);
+//        t.setParameter("glosses", glosses);
 
         StringWriter xmlOutWriter = new StringWriter();
         // do transformation
         t.transform(source, new StreamResult(xmlOutWriter));
 
         return xmlOutWriter.toString();
-
-// return "" + language + " test " + uniqueTr + "";
 
     }
 
@@ -172,5 +163,26 @@ public class flex2exb {
            return null;
         }
     }
+
+    public String getStringFromXML(String strResult, String xpathString) throws XPathExpressionException{
     
+        XPath xpath = XPathFactory.newInstance().newXPath();
+        InputSource transSource = new InputSource(new StringReader(strResult));
+        XPathExpression transXpath = xpath.compile(xpathString);
+        NodeList translationNodes = (NodeList) transXpath.evaluate(transSource, XPathConstants.NODESET);
+        
+        List<String> translationStrings = new ArrayList<String>();
+        
+        for (int translation = 0; translation < translationNodes.getLength(); translation++)
+                        translationStrings.add(translationNodes.item(translation).getNodeValue());
+        
+        HashSet uniqueTr = new HashSet();
+                uniqueTr.addAll(translationStrings);
+                translationStrings.clear();
+                translationStrings.addAll(uniqueTr);
+        
+                String joinedTr = Joiner.on(" ").join(uniqueTr);
+            return joinedTr;
+        }
+            
 }
