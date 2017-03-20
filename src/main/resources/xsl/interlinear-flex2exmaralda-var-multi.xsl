@@ -34,7 +34,7 @@
 
     <xsl:param name="language" required="yes"/>
 
-    <xsl:param name="settings-file" select="'https://gist.githubusercontent.com/nikopartanen/6bf15196bfe93ce59dc64af2bc4120df/raw/36d31505e24a6e4ed52861ba5a2b9e031a27473f/settings.xml'"/>
+    <xsl:param name="settings-file" select="'https://gist.githubusercontent.com/nikopartanen/6bf15196bfe93ce59dc64af2bc4120df/raw/3eb872c6016c2d9c6fb5991e2a8cd71955225e63/settings.xml'"/>
     <xsl:variable name="settings" select="doc($settings-file)"/>
     <xsl:variable name="baseline" select="$settings//project[@id=$language]/tiers/baseline/@lang"/>
    
@@ -63,6 +63,7 @@
             href="{concat($textname,'.exb')}">-->
 
             <basic-transcription>
+
                 <head>
                     <meta-information>
                         <project-name>
@@ -72,7 +73,12 @@
                             <xsl:value-of select="$textname"/>
                         </transcription-name>
                         <referenced-file url="{concat($textname,'.wav')}"/>
-                        <ud-meta-information/>
+                        <ud-meta-information>
+                            <ud-information>
+                            <xsl:attribute name="attribute-name">creation-date</xsl:attribute>
+                                <xsl:value-of  select="current-dateTime()"/>
+                            </ud-information>
+                        </ud-meta-information>
                         <comment><xsl:value-of select="$comment"></xsl:value-of></comment>
                         <transcription-convention/>
                     </meta-information>
@@ -699,6 +705,32 @@
                 <property name="font-name">Charis SIL</property>
             </tier-format>
             <tier-format tierref="fe">
+                <property name="row-height-calculation">Generous</property>
+                <property name="fixed-row-height">10</property>
+                <property name="font-face">Plain</property>
+                <property name="font-color">blue</property>
+                <property name="chunk-border-style">solid</property>
+                <property name="bg-color">white</property>
+                <property name="text-alignment">Left</property>
+                <property name="chunk-border-color">#R00G00B00</property>
+                <property name="chunk-border"/>
+                <property name="font-size">12</property>
+                <property name="font-name">Charis SIL</property>
+            </tier-format>
+            <tier-format tierref="lte">
+                <property name="row-height-calculation">Generous</property>
+                <property name="fixed-row-height">10</property>
+                <property name="font-face">Plain</property>
+                <property name="font-color">blue</property>
+                <property name="chunk-border-style">solid</property>
+                <property name="bg-color">white</property>
+                <property name="text-alignment">Left</property>
+                <property name="chunk-border-color">#R00G00B00</property>
+                <property name="chunk-border"/>
+                <property name="font-size">12</property>
+                <property name="font-name">Charis SIL</property>
+            </tier-format>
+            <tier-format tierref="ltr">
                 <property name="row-height-calculation">Generous</property>
                 <property name="fixed-row-height">10</property>
                 <property name="font-face">Plain</property>
