@@ -34,7 +34,7 @@
 
     <xsl:param name="language" required="yes"/>
 
-    <xsl:param name="settings-file" select="'https://gist.githubusercontent.com/nikopartanen/6bf15196bfe93ce59dc64af2bc4120df/raw/3eb872c6016c2d9c6fb5991e2a8cd71955225e63/settings.xml'"/>
+    <xsl:param name="settings-file" select="'https://raw.githubusercontent.com/hzsk/flex2exb/master/settings.xml'"/>
     <xsl:variable name="settings" select="doc($settings-file)"/>
     <xsl:variable name="baseline" select="$settings//project[@id=$language]/tiers/baseline/@lang"/>
    
